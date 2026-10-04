@@ -1,0 +1,46 @@
+# Readable classic-GL-RBF example on the paper's combustion file. This is a template, not the trained backbone behind the reported Cond-T result.
+data:
+  kind: combustion
+  path: dataset/combustion.h5
+  stats_path: dataset/combustion.stats.pt
+  train_fraction: 0.9
+  split_seed: 42
+model:
+  model_name: GL_rbf
+  backbone: GL_rbf
+  coord_dim: 3
+  hidden_dim: 128
+  cond_dim: 64
+  field_embed_dim: 32
+  latent_dim: 128
+  num_latents: 64
+  num_heads: 4
+  num_latent_blocks: 3
+  summary_type: mean
+  gather_mode: topk_rbf
+  gather_topk: 32
+  neighbor_backend: torch
+  rbf_sigma: 0.05
+  prior: rff
+  rff_features: 256
+  rff_lengthscale: 0.15
+observations:
+  fields: [T]
+  sensors_per_field: 256
+training:
+  seed: 42
+  epochs: 10000
+  batch_size: 128
+  query_points: 4096
+  learning_rate: 0.0001
+  weight_decay: 0.000001
+  gradient_clip: 1.0
+  validation_samples: 16
+  save_every_epochs: 100
+evaluation:
+  max_samples: 1000
+  draws: 1
+  steps: 2
+  solver: euler
+  observation_consistency: default_hard
+  query_chunk_size: 2048

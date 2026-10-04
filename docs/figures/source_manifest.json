@@ -1,0 +1,137 @@
+{
+  "combustion": {
+    "source": "dataset/combustion.h5",
+    "split": "held-out frame split, seed 42",
+    "heldout_state_index": 0,
+    "frame_id": 5,
+    "frame_time_as_stored": 0.0005,
+    "grid": [
+      100,
+      403
+    ],
+    "field_order": [
+      "CH4",
+      "CO",
+      "T",
+      "U_1",
+      "p"
+    ],
+    "conditioning_example": "T only",
+    "illustrative_sensor_count": 256,
+    "illustrative_sensor_seed": 42,
+    "sensor_positions_are_paper_manifest": false
+  },
+  "cfd": {
+    "source": "dataset/pdebench/Processed/CFD_{L,M,H}_res.h5",
+    "split": "held-out cases 9000-9999",
+    "case_id": 9000,
+    "frame_id": 10,
+    "frame_time_as_stored": 0.5250000059604645,
+    "field": "Vx",
+    "grid_sizes": {
+      "L": [
+        32,
+        32
+      ],
+      "M": [
+        64,
+        64
+      ],
+      "H": [
+        128,
+        128
+      ]
+    },
+    "max_absolute_coarse_average_difference": {
+      "M": 1.1175870895385742e-08,
+      "L": 2.0489096641540527e-08
+    }
+  },
+  "elasticity": {
+    "source": "dataset/elasticity/Interp/Random_UnitCell_{sigma,mask}_10_interp.npy",
+    "split": "held-out cases of the seeded 80/20 case split, seed 42",
+    "heldout_indices": [
+      232,
+      30,
+      354
+    ],
+    "case_ids": [
+      1161,
+      167,
+      1672
+    ],
+    "grid": [
+      41,
+      41
+    ],
+    "field_order": [
+      "sigma",
+      "mask"
+    ],
+    "observed_field": "sigma",
+    "sensor_rule": "material points within 3 grid steps of the void",
+    "illustrative_sensor_count": 16,
+    "illustrative_sensor_seeds": [
+      274,
+      72,
+      396
+    ],
+    "sensor_positions_are_paper_manifest": false,
+    "displayed_outline": {
+      "method": "closed cubic smoothing spline of the support-mask boundary",
+      "blur_cells": 0.0,
+      "smoothing_per_vertex": 0.05
+    }
+  },
+  "airfoil": {
+    "source": "dataset/airfoil/naca_interp_5f/NACA_{Q,mask,X,Y}_interp.npy",
+    "split": "held-out cases of the seeded 80/20 case split, seed 42",
+    "heldout_indices": [
+      207,
+      196,
+      104
+    ],
+    "case_ids": [
+      1032,
+      990,
+      533
+    ],
+    "grid": [
+      101,
+      101
+    ],
+    "field_order": [
+      "rho",
+      "u",
+      "v",
+      "p",
+      "mask"
+    ],
+    "observed_field": "p",
+    "sensor_rule": "fixed elliptic ring in model coordinates",
+    "sensor_ring": {
+      "center": [
+        0.5,
+        0.5
+      ],
+      "semi_axes": [
+        0.3,
+        0.12
+      ],
+      "ring_halfwidth": 0.08
+    },
+    "illustrative_sensor_count": 32,
+    "illustrative_sensor_seeds": [
+      249,
+      238,
+      146
+    ],
+    "sensor_positions_are_paper_manifest": false,
+    "displayed_outline": {
+      "method": "closed cubic smoothing spline of the support-mask boundary",
+      "blur_cells": 0.6,
+      "smoothing_per_vertex": 1.0
+    }
+  },
+  "interpretation": "Raw dataset fields only; no model reconstruction or quantitative performance is shown."
+}

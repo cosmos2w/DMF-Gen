@@ -1,0 +1,70 @@
+# Elasticity profile: 16 von Mises stress sensors next to the void reconstruct the stress field and material mask. The architecture and nominal evaluation settings follow the manuscript; the CLI draws its own sensor and source samples.
+data:
+  kind: elasticity
+  root: dataset/elasticity
+  stats_path: dataset/elasticity.stats.pt
+  train_fraction: 0.8
+  split_seed: 42
+  sensor_band_cells: 3 # Sensors use material points within three grid steps of the void.
+model:
+  model_name: GL_rbf_ENH
+  backbone: GL_rbf_ENH
+  coord_dim: 3
+  hidden_dim: 64
+  cond_dim: 64
+  field_embed_dim: 32
+  latent_dim: 64
+  num_latents: 32
+  num_heads: 2
+  num_latent_blocks: 4
+  ff_mult: 4
+  attn_dropout: 0.1
+  mlp_dropout: 0.1
+  sigma_min: 0.0001
+  USE_FOURIER_PE: true
+  fourier_pe_num_bands: 16
+  fourier_pe_max_freq: 32.0
+  sensor_coord_encoding: fourier
+  latent_sensor_reinject: true
+  latent_reinject_every: 1
+  query_latent_readout: true
+  query_readout_type: coord
+  query_readout_scale_init: 0.01
+  enhanced_head_norm: true
+  summary_type: cls
+  gather_mode: topk_rbf_glres
+  gather_topk: 32
+  sensor_local_topk: 8
+  gather_query_chunk_size: 1024
+  neighbor_backend: torch
+  rbf_sigma: 0.05
+  learnable_rbf_sigma: false
+  glres_scale_init: 0.01
+  prior: rff
+  rff_features: 256
+  rff_lengthscale: 0.10
+observations:
+  fields: [sigma]
+  train_sensors_per_field: {min: 16, max: 32}
+  evaluation_sensors_per_field: 16
+training:
+  seed: 42
+  epochs: 20000
+  batch_size: 128
+  query_points: 1024
+  learning_rate: 0.0002
+  weight_decay: 0.0001
+  gradient_clip: 1.0
+  ema_decay: 0.999
+  scheduler_step_unit: epoch
+  validation_every_epochs: 5
+  validation_observation_set: training
+  validation_samples: 400
+  save_every_epochs: 200
+evaluation:
+  max_samples: 400
+  draws: 8
+  steps: 4
+  solver: euler
+  observation_consistency: default_hard
+  query_chunk_size: 8192
