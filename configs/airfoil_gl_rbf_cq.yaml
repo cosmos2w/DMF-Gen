@@ -1,0 +1,87 @@
+# Airfoil profile: 32 static-pressure sensors on a fixed ellipse reconstruct density, velocity, pressure, and the fluid mask. The architecture and nominal evaluation settings follow the manuscript; the CLI draws its own sensor and source samples. Mach is derived at evaluation.
+data:
+  kind: airfoil
+  root: dataset/airfoil
+  stats_path: dataset/airfoil.stats.pt
+  train_fraction: 0.8
+  split_seed: 42
+  ellipse_center: [0.5, 0.5] # The sensor ring is in model coordinates and shared by every case.
+  ellipse_semi_axes: [0.30, 0.12]
+  ellipse_ring_halfwidth: 0.08
+model:
+  model_name: GL_rbf_CQ
+  backbone: GL_rbf_ENH_CQ
+  coord_dim: 3
+  hidden_dim: 128
+  cond_dim: 64
+  field_embed_dim: 64
+  latent_dim: 128
+  num_latents: 64
+  num_heads: 4
+  num_latent_blocks: 6
+  ff_mult: 4
+  attn_dropout: 0.1
+  mlp_dropout: 0.1
+  sigma_min: 0.0001
+  USE_FOURIER_PE: true
+  fourier_pe_num_bands: 32
+  fourier_pe_max_freq: 64.0
+  sensor_coord_encoding: fourier
+  latent_sensor_reinject: true
+  latent_reinject_every: 1
+  query_latent_readout: true
+  query_readout_type: coord
+  query_readout_scale_init: 0.01
+  enhanced_head_norm: true
+  summary_type: cls
+  gather_mode: topk_rbf_glres
+  gather_topk: 32
+  gather_query_chunk_size: 1024
+  neighbor_backend: torch
+  rbf_sigma: 0.06
+  learnable_rbf_sigma: true
+  glres_scale_init: 0.01
+  condition_attention_execution: cached_kv
+  sensor_attention_padding_mode: full
+  cq_query_dim: 128
+  cq_readout_mode: lowrank
+  cq_readout_rank: 64
+  cq_readout_heads: 4
+  cq_fusion_mode: additive
+  cq_global_scale_init: 1.0
+  cq_local_scale_init: 1.0
+  cq_readout_scale_init: 0.01
+  cq_time_conditioning: sinusoidal_film
+  cq_time_embed_dim: 128
+  cq_time_max_period: 10000.0
+  cq_time_film_zero_init: true
+  cq_measurement_support_mode: rbf_value_support
+  cq_measurement_support_normalize: true
+  prior: rff
+  rff_features: 256
+  rff_lengthscale: 0.15
+observations:
+  fields: [p]
+  train_sensors_per_field: {min: 32, max: 48}
+  evaluation_sensors_per_field: 32
+training:
+  seed: 42
+  epochs: 20000
+  batch_size: 32
+  query_points: 4096
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+  gradient_clip: 1.0
+  ema_decay: 0.999
+  scheduler_step_unit: epoch
+  validation_every_epochs: 5
+  validation_observation_set: training
+  validation_samples: 498
+  save_every_epochs: 200
+evaluation:
+  max_samples: 498
+  draws: 8
+  steps: 32
+  solver: euler
+  observation_consistency: default_hard
+  query_chunk_size: 8192
