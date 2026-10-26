@@ -87,6 +87,44 @@ dmf-evaluate --config configs/elasticity_gl_rbf_enh.yaml \
 
 Field errors use only points where the reference field exists, and the mask is scored as a thresholded shape. The per-case shape errors, stress concentration, Mach error, and drag go to `per_sample_task.csv`. The [airfoil profile](configs/airfoil_gl_rbf_cq.yaml) runs the same way, but its evaluation also needs `pip install -e '.[physics]'` for the drag metric.
 
+## Demo: elasticity reconstruction
+
+**Files.** Download `dmf-gen_elasticity_demo.zip` (18 MB) from the [demo folder](https://drive.google.com/drive/folders/1ebHxgUIBfr-IAJ9kQwwgNfO8F3nNXZxS) and unzip it in the repository root. It adds the elasticity arrays released with Geo-FNO, their training-split statistics, and the manuscript's elasticity checkpoint, `checkpoints/elasticity_gl_rbf_enh.pt`; the [dataset guide](dataset/README.md#elasticity-demo-bundle) lists the files and their checksums. Install the package with `pip install -e '.[physics]'`, which adds the plotting dependencies, and run from the repository root:
+
+```bash
+# 1. Score the manuscript checkpoint on all 400 held-out unit cells
+dmf-evaluate --config configs/elasticity_gl_rbf_enh.yaml \
+  --checkpoint checkpoints/elasticity_gl_rbf_enh.pt --output-dir runs/elasticity_demo/evaluation
+
+# 2. Reconstruct two held-out cells and draw them in the manuscript's style
+for i in 28 178; do
+  dmf-reconstruct --config configs/elasticity_gl_rbf_enh.yaml \
+    --checkpoint checkpoints/elasticity_gl_rbf_enh.pt --sample-index $i \
+    --output runs/elasticity_demo/case_$i.npz
+done
+python docs/figures/render_elasticity_reconstruction.py \
+  runs/elasticity_demo/case_28.npz runs/elasticity_demo/case_178.npz \
+  --output runs/elasticity_demo/reconstruction.png
+
+# 3. Train a new model with the checkpoint's recipe
+dmf-train --config configs/elasticity_gl_rbf_enh.yaml --device cuda:0 \
+  --output-dir runs/elasticity_train
+```
+
+| Step | Expected output | Run time |
+| --- | --- | --- |
+| 1. Evaluate | `summary.json` reports a mean stress relative L2 of `0.1305` over the material and a mean void IoU of `0.953`; per-case values are in `per_sample_field.csv` and `per_sample_task.csv`. With `--device cuda:0` the random draws differ and the stress error is `0.1297`. | 45 s on 4 CPU cores |
+| 2. Reconstruct and plot | Two NPZ files and the figure below | 10 s on 4 CPU cores |
+| 3. Train | `run_config.yaml`, `train.log`, `metrics.jsonl`, `best.pt`, and `last.pt` in `runs/elasticity_train/` | 7.7 h for 20,000 epochs on one NVIDIA L40S GPU; 38 s per epoch on 4 CPU cores |
+
+*Times were measured with Python 3.10 and PyTorch 2.11 on 4 cores of an AMD EPYC 9474F and on one NVIDIA L40S. Steps 1 and 2 use under 1 GB of memory; CPU training uses about 6 GB.*
+
+**Configuration.** The [elasticity profile](configs/elasticity_gl_rbf_enh.yaml) holds the checkpoint's architecture (`GL_rbf_ENH`, 432,392 parameters), sensor rule, training recipe, and evaluation settings: 16 to 32 stress sensors per training case, 16 at evaluation, and the mean of 8 draws with 4 Euler steps each. The manuscript checkpoint is the epoch-12,605 state of a 20,000-epoch run. The bundle also keeps that run's original configuration file, `checkpoints/elasticity_gl_rbf_enh.training_config.yaml`, for reference; `dmf-train` does not read it.
+
+<a href="docs/figures/elasticity_reconstruction.png"><img src="docs/figures/elasticity_reconstruction.png" alt="Reference and DMF-Gen von Mises stress for two held-out unit cells, the 16 stress sensors next to each void, and the signed reconstruction errors with their relative L2 errors" width="75%"></a>
+
+*Elasticity reconstruction.* Held-out samples 28 and 178 (unit cells 161 and 893), the two cases of the manuscript's elasticity figure, as produced by step 2. Top: reference von Mises stress and the DMF-Gen mean of 8 draws. Bottom: the 16 stress sensors on the reference geometry and the signed reconstruction error, with its relative L2 error over the material. Per-case errors depend on the sensor draw; the commands draw their own sensors rather than replaying the manuscript's.
+
 ## Quick start: train, evaluate, reconstruct
 
 **Quick check:** After placing the combustion dataset, run one optimizer update on a small query subset to check the training, evaluation, and reconstruction commands:

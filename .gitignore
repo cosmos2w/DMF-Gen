@@ -1,6 +1,7 @@
 # Local data pointers and payloads
 dataset/*
 !dataset/README.md
+checkpoints/
 *.h5
 *.hdf5
 *.pt

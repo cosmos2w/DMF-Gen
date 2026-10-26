@@ -24,6 +24,9 @@ Both selected geometry checkpoints loaded strictly into the supplied model profi
 | Airfoil `dmf-evaluate` on 498 cases, 32 pressure sensors, 8 draws, 32 Euler steps | Mean Mach relative L2 `0.0120`; geometry relative L2 `0.106`; drag mean absolute relative error `0.154` | The manuscript's saved draw yielded `0.0122` Mach relative L2. |
 | One or two optimizer updates with each geometry profile, followed by evaluation | Finite train and validation losses; checkpoints loaded and held-out cases were scored | Exercises real-data training and evaluation paths without claiming convergence. |
 | Full-grid reconstruction and plotting for one held-out case of each task | NPZ reconstruction and PNG field panels were produced | Exercises reconstruction and visualization entry points. |
+| Elasticity demo checkpoint `checkpoints/elasticity_gl_rbf_enh.pt`, `dmf-evaluate` on 400 cases with CUDA | Tensors and statistics identical to the manuscript checkpoint; per-case results identical to evaluating the manuscript file; mean stress relative L2 `0.1297` | The demo bundle carries the manuscript checkpoint unchanged. |
+| Elasticity demo commands on 4 CPU cores | 400-case evaluation in 42 s with stress relative L2 `0.1305` and void IoU `0.953`; two reconstructions and the manuscript-style figure in 10 s | CPU and CUDA draw different random values from the same seed. |
+| 50 epochs of the elasticity training recipe on one NVIDIA L40S | 1.39 s per epoch, about 7.7 h for 20,000 epochs; training and validation losses over the first 10 epochs within `0.05` of the manuscript run's | A complete retraining has not been compared with the manuscript checkpoint. |
 
 The CLI samples sensors from the prescribed candidate sets but does not replay the manuscript's saved sensor or source draws. The reported CLI means therefore describe fresh draws. Method comparisons should use matched draws.
 

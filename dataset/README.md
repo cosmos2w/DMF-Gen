@@ -39,6 +39,28 @@ Each `CFD_{L,M,H}_res.h5` has `fields` with shape `[cases, frames, points, 1, 1,
 
 **Airfoil.** Start from the Geo-FNO NACA flow cases on their body-fitted grids, interpolate each flow field with piecewise-linear `scipy.interpolate.griddata` to a shared 101 × 101 Cartesian grid spanning `x ∈ [−0.5, 1.5]` and `y ∈ [−1, 1]`, and use zero fill outside the interpolation hull. A point-in-polygon test on the airfoil wall defines the fluid mask; set source values inside the body to zero. The prepared `NACA_Q_interp.npy` has shape `[2490, 5, 101, 101]` in the freestream-normalized order `rho, u, v, p, Ma`. `NACA_mask_interp.npy` is a boolean `[2490, 101, 101]` array that is true in the fluid; `NACA_X_interp.npy` and `NACA_Y_interp.npy` each have that same case/grid shape and contain the common Cartesian coordinates. DMF-Gen predicts `rho, u, v, p` and the fluid mask; the stored Mach channel is used to check the source order, then Mach is derived from the reconstructed fields for evaluation. Density and pressure are normalized in log space after fluid values are selected.
 
+### Elasticity demo bundle
+
+`dmf-gen_elasticity_demo.zip` (18 MB) in the [demo folder](https://drive.google.com/drive/folders/1ebHxgUIBfr-IAJ9kQwwgNfO8F3nNXZxS) holds everything the [elasticity demo](../README.md#demo-elasticity-reconstruction) needs. Unzip it in the repository root to place these files:
+
+| File | Contents |
+| --- | --- |
+| `dataset/elasticity/Interp/Random_UnitCell_sigma_10_interp.npy` | Geo-FNO elasticity stress array, unchanged |
+| `dataset/elasticity/Interp/Random_UnitCell_mask_10_interp.npy` | Geo-FNO elasticity material mask, unchanged |
+| `dataset/elasticity.stats.pt` | Training-split normalization statistics stored with the checkpoint |
+| `checkpoints/elasticity_gl_rbf_enh.pt` | Manuscript elasticity checkpoint: weights and statistics only |
+| `checkpoints/elasticity_gl_rbf_enh.training_config.yaml` | Configuration file of the run that produced the checkpoint, kept for reference |
+
+The two arrays are the elasticity files released with Geo-FNO; cite that work when you use them. To check the unzipped files, save these lines to a file and run `sha256sum -c` on it:
+
+```text
+2954f4518c1e3b2aa43cd35a270a51599a545f6dfc5e16b1ed102a0f53866843  dataset/elasticity/Interp/Random_UnitCell_sigma_10_interp.npy
+67ac42632f2521f8360b2bbb9c80b663e053057ddd4d71c229ee10a9caacde91  dataset/elasticity/Interp/Random_UnitCell_mask_10_interp.npy
+cfc17e3273c9328b9307e1f0993ee06e7b4c66b27cd6b24d7edfc7aec9c111eb  dataset/elasticity.stats.pt
+c20337f69907b921a4e6408fc364d06201391bc29bd77fbfb135ffde116bf650  checkpoints/elasticity_gl_rbf_enh.pt
+124c5b5f4b6d0c19789ecebd402ad92dce432e66f0ed397bd079fd0561e88bc9  checkpoints/elasticity_gl_rbf_enh.training_config.yaml
+```
+
 ## In-house turbulent combustion
 
 The backward-facing-step methane–air simulation is represented by a single HDF5 file, `combustion.h5`. Its `fields` dataset has shape `[1, frames, 40300, 1, 1, 5]` and channel order `CH4, CO, T, U_1, p`, corresponding to methane and carbon-monoxide mass fractions, temperature, streamwise velocity, and pressure. The study uses 10,000 frames on a 403 × 100 nonuniform rectilinear point set. The file also contains `coordinates` with one 3-component spatial coordinate per point and may contain a `time` vector; a `selected_fields` attribute may record the channel names. The loader splits frames with a fixed seed and fits per-channel normalization from training frames. Observation configurations select which physical channels supply sparse sensors, while every target retains all five fields.
