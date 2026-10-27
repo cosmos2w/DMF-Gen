@@ -1,0 +1,61 @@
+# Optional CQ model example; not a manuscript combustion checkpoint profile.
+data:
+  kind: combustion
+  path: dataset/combustion.h5
+  stats_path: dataset/combustion.stats.pt
+  train_fraction: 0.9
+  split_seed: 42
+model:
+  model_name: GL_rbf_ENH_CQ
+  backbone: GL_rbf_ENH_CQ
+  coord_dim: 3
+  hidden_dim: 128
+  cond_dim: 128
+  field_embed_dim: 64
+  latent_dim: 128
+  num_latents: 64
+  num_heads: 4
+  num_latent_blocks: 3
+  USE_FOURIER_PE: true
+  fourier_pe_num_bands: 32
+  fourier_pe_max_freq: 64.0
+  sensor_coord_encoding: fourier
+  latent_sensor_reinject: true
+  query_latent_readout: true
+  query_readout_type: coord
+  enhanced_head_norm: true
+  summary_type: mean
+  gather_mode: topk_rbf_glres
+  gather_topk: 32
+  sensor_local_topk: 16
+  neighbor_backend: torch
+  rbf_sigma: 0.05
+  learnable_rbf_sigma: true
+  cq_query_dim: 128
+  cq_readout_mode: lowrank
+  cq_readout_rank: 64
+  cq_readout_heads: 4
+  cq_fusion_mode: additive
+  prior: rff
+  rff_features: 256
+  rff_lengthscale: 0.15
+observations:
+  fields: [T]
+  sensors_per_field: 256
+training:
+  seed: 42
+  epochs: 10000
+  batch_size: 128
+  query_points: 4096
+  learning_rate: 0.0001
+  weight_decay: 0.000001
+  gradient_clip: 1.0
+  validation_samples: 16
+  save_every_epochs: 100
+evaluation:
+  max_samples: 1000
+  draws: 1
+  steps: 2
+  solver: euler
+  observation_consistency: default_hard
+  query_chunk_size: 2048

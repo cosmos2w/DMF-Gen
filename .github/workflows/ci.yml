@@ -1,0 +1,26 @@
+name: CPU checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install CPU PyTorch
+        run: python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Install package and test tools
+        run: python -m pip install -e '.[test,plot,physics]'
+      - name: Lint
+        run: python -m ruff check src tests docs/figures
+      - name: Test
+        run: python -m pytest -q

@@ -1,0 +1,25 @@
+# Local data pointers and payloads
+dataset/*
+!dataset/README.md
+checkpoints/
+*.h5
+*.hdf5
+*.pt
+*.pth
+*.ckpt
+*.npz
+*.npy
+
+# Outputs and local environments
+docs/figures/source_manifest.json
+runs/
+.venv/
+build/
+dist/
+*.egg-info/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+.DS_Store
