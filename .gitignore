@@ -11,6 +11,7 @@ checkpoints/
 *.npy
 
 # Outputs and local environments
+docs/figures/source_manifest.json
 runs/
 .venv/
 build/

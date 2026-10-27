@@ -4,27 +4,30 @@
 
 **What you can run:** The repository provides the GL-RBF model family, data interfaces, and commands for training, evaluation, and reconstruction on turbulent combustion, mixed-resolution CFD, elasticity, and airfoil examples.
 
-[![DMF-Gen model structure: sparse channel-labeled measurements, global and local sensor conditioning, rectified-flow generation, and changing task settings](docs/_resources/Figure_ModelStructure.png)](docs/_resources/Figure_ModelStructure.pdf)
+**Try the [small elasticity demo](#small-elasticity-demo):** download about 61 MB of example data and pretrained weights, then evaluate and generate reconstruction images on a CPU in about one minute.
 
-**Measurements and queries.** On the left, each measured scalar carries its own coordinate and channel label, while separate query coordinates determine where the full field is reconstructed.
+## Small elasticity demo
 
-**Global and local conditioning.** The GL-RBF backbone turns measurements into sensor tokens, exchanges context with global latent tokens, and uses nearby RBF-weighted sensors to predict velocity at each query. The enhanced profile also includes a global query readout.
+This example reconstructs von Mises stress and the material mask of a simulated elastic unit cell from 16 sparse stress measurements. It includes the Geo-FNO arrays for 2,000 unit cells, matching training normalization, and a pretrained `GL_rbf_ENH` checkpoint. The commands evaluate the 400 held-out cases, reconstruct two selected cases, and plot their reference and predicted stress, sensors, and errors. No training or GPU is needed to run this demo.
 
-**Generation.** The middle row follows a Gaussian reference field as the learned velocity carries it toward a reconstruction.
+### 1. Download and place the files
 
-**Tasks.** The bottom row illustrates changes in geometry, output resolution, observed channels, and conditional draws. The examples cover [mixed-resolution CFD](configs/mixed_hml.yaml), [five-field combustion](configs/combustion_cond_t.yaml), [elasticity](configs/elasticity_gl_rbf_enh.yaml), and [airfoil flow](configs/airfoil_gl_rbf_cq.yaml).
+Download the following four individual files from the [elasticity demo folder](https://drive.google.com/drive/folders/1ebHxgUIBfr-IAJ9kQwwgNfO8F3nNXZxS) and place them at the paths below, relative to the repository root. Rename `elasticity_stats.pt` and `best.pt` as shown.
 
-## Model and task map
+```bash
+mkdir -p dataset/elasticity/Interp checkpoints
+```
 
-| Profile | Model features | Example config |
+| Download | Required local path | Contents |
 | --- | --- | --- |
-| `GL_rbf` | Global latent context and local RBF conditioning | [Base example](configs/gl_rbf_base.yaml) |
-| `GL_rbf_ENH` | Fourier sensor features, repeated latent reads, and query latent readout | [Combustion](configs/combustion_cond_t.yaml), [mixed-resolution CFD](configs/mixed_hml.yaml), and [elasticity](configs/elasticity_gl_rbf_enh.yaml) |
-| `GL_rbf_ENH_CQ` | Compact-query head used for the airfoil task | [Airfoil](configs/airfoil_gl_rbf_cq.yaml) and [optional profile](configs/gl_rbf_enh_cq.yaml) |
+| [Random_UnitCell_sigma_10_interp.npy](https://drive.google.com/file/d/19EPJ_F1-pRG5112xy4BEs7qGxC4OdvY8/view) | `dataset/elasticity/Interp/Random_UnitCell_sigma_10_interp.npy` | Geo-FNO stress array, float64 `[41, 41, 2000]` |
+| [Random_UnitCell_mask_10_interp.npy](https://drive.google.com/file/d/1JuTLUNg57ERahU7JQpfZMm5gkiin-t0c/view) | `dataset/elasticity/Interp/Random_UnitCell_mask_10_interp.npy` | Geo-FNO binary material mask, int64 `[41, 41, 2000]` |
+| [elasticity_stats.pt](https://drive.google.com/file/d/178rc5ub2HDMEOOjCuiqRPmla-kkykDEz/view) | `dataset/elasticity.stats.pt` | Training normalization matching the checkpoint |
+| [best.pt](https://drive.google.com/file/d/1pwNcx3S_schcI17tixEL9gIjSogUmqP5/view) | `checkpoints/elasticity_gl_rbf_enh.pt` | Epoch-12,605 checkpoint |
 
-*Choose a profile through its YAML config; the model, observation pattern, training options, and evaluation options are kept together.*
+The [dataset guide](dataset/README.md#elasticity-demo-files) provides the SHA-256 checksums and Geo-FNO attribution.
 
-## Install
+### 2. Install
 
 **Requirements:** Python 3.10 or newer. From the repository root, create an environment and install CPU PyTorch plus the package and demo plotting dependencies:
 
@@ -42,58 +45,21 @@ python -m pip install -e '.[physics]'
 
 **Optional acceleration:** PyKeOps can be installed for large point clouds (`pip install -e '.[keops]'`). Choose the neighbor backend in the YAML config and use an appropriate PyTorch build for your accelerator before starting a full training run.
 
-## Data
+### 3. Evaluate, reconstruct, and plot
 
-**<ins>Before training:</ins>** See the [dataset guide](dataset/README.md) for dataset availability and placement. Put each task's data under `dataset/` in the documented layout. The loaders check field order and shape:
-
-| Task | Fields | Native query points |
-| --- | --- | --- |
-| Combustion | `CH4, CO, T, U_1, p` | 40,300 |
-| PDEBench CFD | processed `Vx` for paper examples | L 1,024; M 4,096; H 16,384 |
-| Elasticity | von Mises stress and material mask | 1,681 |
-| Airfoil | density, two velocity components, pressure, and fluid mask | 10,201 |
-
-**Normalization statistics:** The example configs refer to optional precomputed files. If you have the data without matching statistics, set `data.stats_path` to `null` in your chosen config to compute statistics from the training split before use; this can take time on the full datasets. Evaluate a trained checkpoint with its original statistics.
-
-*The figures below show raw held-out dataset states, not model reconstructions.*
-
-### Five-field turbulent combustion
-
-<a href="docs/figures/combustion_multifield.png"><img src="docs/figures/combustion_multifield.png" alt="Five raw combustion fields and an illustrative set of 256 temperature measurements from one held-out frame" width="50%"></a>
-
-*Combustion example.* One held-out frame shows the five physical target fields. The colored dots show an illustrative set of 256 sparse temperature observations.
-
-### Mixed-resolution CFD
-
-<a href="docs/figures/cfd_resolution_hierarchy.png"><img src="docs/figures/cfd_resolution_hierarchy.png" alt="One held-out CFD streamwise-velocity field at low, medium, and high resolution on a shared color scale" width="50%"></a>
-
-*CFD example.* The same held-out state appears at 32 × 32, 64 × 64, and 128 × 128 points. The lower-resolution fields are spatial averages of the high-resolution field.
-
-### Changing geometry
-
-<a href="docs/figures/geometry_elasticity.png"><img src="docs/figures/geometry_elasticity.png" alt="Von Mises stress in three held-out elasticity unit cells with differently shaped voids, and 16 stress sensors in the material next to each void" width="50%"></a>
-
-*Elasticity example.* Three held-out unit cells share one 41 × 41 grid, but each void (grey) has its own shape. The model reconstructs the stress and the material mask from 16 stress sensors (white) drawn from the material next to the void (small dots).
-
-<a href="docs/figures/geometry_airfoil.png"><img src="docs/figures/geometry_airfoil.png" alt="Static pressure around three held-out airfoils of different thickness and angle, and 32 pressure sensors on a fixed ellipse" width="50%"></a>
-
-*Airfoil example.* Three held-out airfoils, cropped from one 101 × 101 grid. The model reconstructs density, velocity, pressure, and the fluid mask from 32 static-pressure sensors (white) drawn from one fixed ellipse (small dots); Mach number and drag are derived at evaluation.
-
-## Demo: elasticity reconstruction
-
-**Files.** Download the four individual files (about 61 MB total) from the [elasticity demo folder](https://drive.google.com/drive/folders/1ebHxgUIBfr-IAJ9kQwwgNfO8F3nNXZxS). Follow the [file placement and SHA-256 table](dataset/README.md#elasticity-demo-files), including renaming the statistics and checkpoint files. The files provide Geo-FNO stress and material-mask arrays for 2,000 unit cells, training normalization, and the supplied elasticity checkpoint. After installation and file placement, run from the repository root:
+Run these commands from the repository root with the environment above activated:
 
 ```bash
 # Use four CPU threads for the timings below
 export OMP_NUM_THREADS=4
 export MKL_NUM_THREADS=4
 
-# 1. Score the supplied checkpoint on all 400 held-out unit cells
+# Evaluate the supplied checkpoint on all 400 held-out unit cells
 dmf-evaluate --config configs/elasticity_gl_rbf_enh.yaml \
   --checkpoint checkpoints/elasticity_gl_rbf_enh.pt --device cpu \
   --output-dir runs/elasticity_demo/evaluation
 
-# 2. Reconstruct two held-out cells and draw them in the manuscript's style
+# Reconstruct two held-out cells and render the stress fields
 for i in 28 178; do
   dmf-reconstruct --config configs/elasticity_gl_rbf_enh.yaml \
     --checkpoint checkpoints/elasticity_gl_rbf_enh.pt --sample-index "$i" --device cpu \
@@ -134,6 +100,65 @@ dmf-train --config configs/elasticity_gl_rbf_enh.yaml --device cuda:0 \
 
 The profile configures 20,000 epochs. A previously measured 50-epoch NVIDIA L40S run was about 1.4 seconds per epoch (roughly 8 hours extrapolated for 20,000 epochs). This is a runtime estimate; the public training command does not guarantee recovery of the supplied checkpoint or manuscript scores.
 
+## Models and tasks
+
+[![DMF-Gen model structure: sparse channel-labeled measurements, global and local sensor conditioning, rectified-flow generation, and changing task settings](docs/_resources/Figure_ModelStructure.png)](docs/_resources/Figure_ModelStructure.pdf)
+
+**Measurements and queries.** On the left, each measured scalar carries its own coordinate and channel label, while separate query coordinates determine where the full field is reconstructed.
+
+**Global and local conditioning.** The GL-RBF backbone turns measurements into sensor tokens, exchanges context with global latent tokens, and uses nearby RBF-weighted sensors to predict velocity at each query. The enhanced profile also includes a global query readout.
+
+**Generation.** The middle row follows a Gaussian reference field as the learned velocity carries it toward a reconstruction.
+
+**Tasks.** The bottom row illustrates changes in geometry, output resolution, observed channels, and conditional draws. The examples cover [mixed-resolution CFD](configs/mixed_hml.yaml), [five-field combustion](configs/combustion_cond_t.yaml), [elasticity](configs/elasticity_gl_rbf_enh.yaml), and [airfoil flow](configs/airfoil_gl_rbf_cq.yaml).
+
+### Available model profiles
+
+| Profile | Model features | Example config |
+| --- | --- | --- |
+| `GL_rbf` | Global latent context and local RBF conditioning | [Base example](configs/gl_rbf_base.yaml) |
+| `GL_rbf_ENH` | Fourier sensor features, repeated latent reads, and query latent readout | [Combustion](configs/combustion_cond_t.yaml), [mixed-resolution CFD](configs/mixed_hml.yaml), and [elasticity](configs/elasticity_gl_rbf_enh.yaml) |
+| `GL_rbf_ENH_CQ` | Compact-query head used for the airfoil task | [Airfoil](configs/airfoil_gl_rbf_cq.yaml) and [optional profile](configs/gl_rbf_enh_cq.yaml) |
+
+*Choose a profile through its YAML config; the model, observation pattern, training options, and evaluation options are kept together.*
+
+## Data
+
+**<ins>Before training:</ins>** See the [dataset guide](dataset/README.md) for dataset availability and placement. Put each task's data under `dataset/` in the documented layout. The loaders check field order and shape:
+
+| Task | Fields | Native query points |
+| --- | --- | --- |
+| Combustion | `CH4, CO, T, U_1, p` | 40,300 |
+| PDEBench CFD | processed `Vx` for paper examples | L 1,024; M 4,096; H 16,384 |
+| Elasticity | von Mises stress and material mask | 1,681 |
+| Airfoil | density, two velocity components, pressure, and fluid mask | 10,201 |
+
+**Normalization statistics:** The example configs refer to optional precomputed files. If you have the data without matching statistics, set `data.stats_path` to `null` in your chosen config to compute statistics from the training split before use; this can take time on the full datasets. Evaluate a trained checkpoint with its original statistics.
+
+*The figures below show raw held-out dataset states, not model reconstructions.*
+
+### Five-field turbulent combustion
+
+<a href="docs/figures/combustion_multifield.png"><img src="docs/figures/combustion_multifield.png" alt="Five raw combustion fields and an illustrative set of 256 temperature measurements from one held-out frame" width="50%"></a>
+
+*Combustion example.* One held-out frame shows the five physical target fields. The colored dots show an illustrative set of 256 sparse temperature observations.
+
+### Mixed-resolution CFD
+
+<a href="docs/figures/cfd_resolution_hierarchy.png"><img src="docs/figures/cfd_resolution_hierarchy.png" alt="One held-out CFD streamwise-velocity field at low, medium, and high resolution on a shared color scale" width="50%"></a>
+
+*CFD example.* The same held-out state appears at 32 × 32, 64 × 64, and 128 × 128 points. The lower-resolution fields are spatial averages of the high-resolution field.
+
+### Changing geometry
+
+<a href="docs/figures/geometry_elasticity.png"><img src="docs/figures/geometry_elasticity.png" alt="Von Mises stress in three held-out elasticity unit cells with differently shaped voids, and 16 stress sensors in the material next to each void" width="50%"></a>
+
+*Elasticity example.* Three held-out unit cells share one 41 × 41 grid, but each void (grey) has its own shape. The model reconstructs the stress and the material mask from 16 stress sensors (white) drawn from the material next to the void (small dots).
+
+<a href="docs/figures/geometry_airfoil.png"><img src="docs/figures/geometry_airfoil.png" alt="Static pressure around three held-out airfoils of different thickness and angle, and 32 pressure sensors on a fixed ellipse" width="50%"></a>
+
+*Airfoil example.* Three held-out airfoils, cropped from one 101 × 101 grid. The model reconstructs density, velocity, pressure, and the fluid mask from 32 static-pressure sensors (white) drawn from one fixed ellipse (small dots); Mach number and drag are derived at evaluation.
+
 ## Use with your data
 
 Follow the [dataset guide](dataset/README.md#use-with-your-data) for input shapes, field order, path settings, and training-split normalization. Copy a suitable [task config](configs/), set `data.path` or `data.root` and `data.stats_path`, and use the same `dmf-train`, `dmf-evaluate`, and `dmf-reconstruct` commands with your config and checkpoint. Keep normalization statistics paired with their trained model.
@@ -143,8 +168,6 @@ Follow the [dataset guide](dataset/README.md#use-with-your-data) for input shape
 **Training** writes a resolved config, metrics, a run log, and checkpoints under the chosen `runs/` folder. Set `training.plot_every_epochs` to a positive integer to save `loss_history.csv` and `loss_history.png`, or set `evaluation.every_epochs` to run periodic physical-field evaluation.
 
 **Evaluation** writes per-sample and per-field physical relative-L2 results. Set `evaluation.plot_samples: 1` to also save one full-field truth/reconstruction/absolute-error PNG per channel for the first deterministic held-out sample. Scheduled evaluations place these panels beside `summary.json` in `evaluation/epoch_XXXX/`; the summary records the sample ID and filenames. Plotting requires the optional `plot` dependencies (`pip install -e '.[plot]'`). **Reconstruction** writes coordinates, observations, targets, and sampled predictions to an NPZ file that `dmf-plot` can visualize.
-
-For implementation references and verification commands, see the [paper-to-code map](docs/PAPER_MAP.md) and [validation guide](docs/VALIDATION.md).
 
 ## License
 

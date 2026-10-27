@@ -41,14 +41,7 @@ Each `CFD_{L,M,H}_res.h5` has `fields` with shape `[cases, frames, points, 1, 1,
 
 ### Elasticity demo files
 
-Download these four files individually from the [demo folder](https://drive.google.com/drive/folders/1ebHxgUIBfr-IAJ9kQwwgNfO8F3nNXZxS). Create `dataset/elasticity/Interp/` and `checkpoints/` if needed, then place and rename the files exactly as shown, relative to the repository root. See the root README for the [demo commands](../README.md#demo-elasticity-reconstruction).
-
-| Download | Required local path | Contents |
-| --- | --- | --- |
-| [Random_UnitCell_sigma_10_interp.npy](https://drive.google.com/file/d/19EPJ_F1-pRG5112xy4BEs7qGxC4OdvY8/view) | `dataset/elasticity/Interp/Random_UnitCell_sigma_10_interp.npy` | Geo-FNO stress array, float64 `[41, 41, 2000]` |
-| [Random_UnitCell_mask_10_interp.npy](https://drive.google.com/file/d/1JuTLUNg57ERahU7JQpfZMm5gkiin-t0c/view) | `dataset/elasticity/Interp/Random_UnitCell_mask_10_interp.npy` | Geo-FNO binary material mask, int64 `[41, 41, 2000]` |
-| [elasticity_stats.pt](https://drive.google.com/file/d/178rc5ub2HDMEOOjCuiqRPmla-kkykDEz/view) | `dataset/elasticity.stats.pt` | Training normalization matching the checkpoint |
-| [best.pt](https://drive.google.com/file/d/1pwNcx3S_schcI17tixEL9gIjSogUmqP5/view) | `checkpoints/elasticity_gl_rbf_enh.pt` | Epoch-12,605 checkpoint |
+The [small elasticity demo](../README.md#small-elasticity-demo) provides four downloads: stress and material-mask arrays, matching normalization, and a pretrained checkpoint. Follow the README for exact filenames, placement, installation, and commands.
 
 The arrays are released with [Geo-FNO](https://github.com/neuraloperator/Geo-FNO#datasets); cite that work when using them. DMF-Gen's MIT source license does not relicense these third-party data. After placement, save the following lines as `elasticity.sha256` outside the repository and run `sha256sum -c /path/to/elasticity.sha256` from the repository root:
 
