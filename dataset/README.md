@@ -39,26 +39,24 @@ Each `CFD_{L,M,H}_res.h5` has `fields` with shape `[cases, frames, points, 1, 1,
 
 **Airfoil.** Start from the Geo-FNO NACA flow cases on their body-fitted grids, interpolate each flow field with piecewise-linear `scipy.interpolate.griddata` to a shared 101 × 101 Cartesian grid spanning `x ∈ [−0.5, 1.5]` and `y ∈ [−1, 1]`, and use zero fill outside the interpolation hull. A point-in-polygon test on the airfoil wall defines the fluid mask; set source values inside the body to zero. The prepared `NACA_Q_interp.npy` has shape `[2490, 5, 101, 101]` in the freestream-normalized order `rho, u, v, p, Ma`. `NACA_mask_interp.npy` is a boolean `[2490, 101, 101]` array that is true in the fluid; `NACA_X_interp.npy` and `NACA_Y_interp.npy` each have that same case/grid shape and contain the common Cartesian coordinates. DMF-Gen predicts `rho, u, v, p` and the fluid mask; the stored Mach channel is used to check the source order, then Mach is derived from the reconstructed fields for evaluation. Density and pressure are normalized in log space after fluid values are selected.
 
-### Elasticity demo bundle
+### Elasticity demo files
 
-`dmf-gen_elasticity_demo.zip` (18 MB) in the [demo folder](https://drive.google.com/drive/folders/1ebHxgUIBfr-IAJ9kQwwgNfO8F3nNXZxS) holds everything the [elasticity demo](../README.md#demo-elasticity-reconstruction) needs. Unzip it in the repository root to place these files:
+Download these four files individually from the [demo folder](https://drive.google.com/drive/folders/1ebHxgUIBfr-IAJ9kQwwgNfO8F3nNXZxS). Create `dataset/elasticity/Interp/` and `checkpoints/` if needed, then place and rename the files exactly as shown, relative to the repository root. See the root README for the [demo commands](../README.md#demo-elasticity-reconstruction).
 
-| File | Contents |
-| --- | --- |
-| `dataset/elasticity/Interp/Random_UnitCell_sigma_10_interp.npy` | Geo-FNO elasticity stress array, unchanged |
-| `dataset/elasticity/Interp/Random_UnitCell_mask_10_interp.npy` | Geo-FNO elasticity material mask, unchanged |
-| `dataset/elasticity.stats.pt` | Training-split normalization statistics stored with the checkpoint |
-| `checkpoints/elasticity_gl_rbf_enh.pt` | Manuscript elasticity checkpoint: weights and statistics only |
-| `checkpoints/elasticity_gl_rbf_enh.training_config.yaml` | Configuration file of the run that produced the checkpoint, kept for reference |
+| Download | Required local path | Contents |
+| --- | --- | --- |
+| [Random_UnitCell_sigma_10_interp.npy](https://drive.google.com/file/d/19EPJ_F1-pRG5112xy4BEs7qGxC4OdvY8/view) | `dataset/elasticity/Interp/Random_UnitCell_sigma_10_interp.npy` | Geo-FNO stress array, float64 `[41, 41, 2000]` |
+| [Random_UnitCell_mask_10_interp.npy](https://drive.google.com/file/d/1JuTLUNg57ERahU7JQpfZMm5gkiin-t0c/view) | `dataset/elasticity/Interp/Random_UnitCell_mask_10_interp.npy` | Geo-FNO binary material mask, int64 `[41, 41, 2000]` |
+| [elasticity_stats.pt](https://drive.google.com/file/d/178rc5ub2HDMEOOjCuiqRPmla-kkykDEz/view) | `dataset/elasticity.stats.pt` | Training normalization matching the checkpoint |
+| [best.pt](https://drive.google.com/file/d/1pwNcx3S_schcI17tixEL9gIjSogUmqP5/view) | `checkpoints/elasticity_gl_rbf_enh.pt` | Epoch-12,605 checkpoint |
 
-The two arrays are the elasticity files released with Geo-FNO; cite that work when you use them. To check the unzipped files, save these lines to a file and run `sha256sum -c` on it:
+The arrays are released with [Geo-FNO](https://github.com/neuraloperator/Geo-FNO#datasets); cite that work when using them. DMF-Gen's MIT source license does not relicense these third-party data. After placement, save the following lines as `elasticity.sha256` outside the repository and run `sha256sum -c /path/to/elasticity.sha256` from the repository root:
 
 ```text
 2954f4518c1e3b2aa43cd35a270a51599a545f6dfc5e16b1ed102a0f53866843  dataset/elasticity/Interp/Random_UnitCell_sigma_10_interp.npy
 67ac42632f2521f8360b2bbb9c80b663e053057ddd4d71c229ee10a9caacde91  dataset/elasticity/Interp/Random_UnitCell_mask_10_interp.npy
-cfc17e3273c9328b9307e1f0993ee06e7b4c66b27cd6b24d7edfc7aec9c111eb  dataset/elasticity.stats.pt
-c20337f69907b921a4e6408fc364d06201391bc29bd77fbfb135ffde116bf650  checkpoints/elasticity_gl_rbf_enh.pt
-124c5b5f4b6d0c19789ecebd402ad92dce432e66f0ed397bd079fd0561e88bc9  checkpoints/elasticity_gl_rbf_enh.training_config.yaml
+ef51193d0086956bd3316f2658ebc1626ac6d8f61153f8b0c31bf196f2a1af2a  dataset/elasticity.stats.pt
+5a6dc83e868901fb79d85100dcf27efe43ebd9969f0f45bc7e67d24484cd8ffe  checkpoints/elasticity_gl_rbf_enh.pt
 ```
 
 ## In-house turbulent combustion
@@ -68,3 +66,7 @@ The backward-facing-step methane–air simulation is represented by a single HDF
 ## Normalization statistics
 
 The example configs name optional statistics files such as `combustion.stats.pt`, `cfd_hml.stats.pt`, `elasticity.stats.pt`, and `airfoil.stats.pt`. To compute statistics from the configured training split, set `data.stats_path: null` in a copy of the config; full-archive preparation can take time. Keep the resulting statistics with trained checkpoints, since evaluation must use the same channel order, transforms, split, and normalization values as training.
+
+## Use with your data
+
+Choose the adapter matching your data and prepare the shapes and channel order described above. Copy its YAML from [`configs/`](../configs/), set `data.path` (HDF5) or `data.root` (array directory), and adjust observation fields and sensor counts to your task. For a new training dataset, set `data.stats_path: null` so normalization is fitted only on its training partition; use the resulting checkpoint's statistics for evaluation and reconstruction. A pretrained checkpoint requires its original channel meanings and normalization. Use your config with the commands in the [root README](../README.md#use-with-your-data).

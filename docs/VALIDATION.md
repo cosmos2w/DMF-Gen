@@ -1,37 +1,23 @@
-# Validation and reproducibility
+# Validation
 
-The checks below describe the scope of source-package verification. Geometry comparisons used the manuscript's selected checkpoints and per-case evaluation arrays; the standard CLI uses independent sensor and source draws, so its aggregate scores need not equal values calculated from the manuscript's saved draws. Dataset layout and normalization requirements are in the [dataset guide](../dataset/README.md).
+The [elasticity demo](../README.md#demo-elasticity-reconstruction) was checked on the CPU environment documented in the README, using the four downloads and SHA-256 values in the [dataset guide](../dataset/README.md#elasticity-demo-files).
+
+| Check | Result |
+| --- | --- |
+| Downloaded arrays | Both `[41, 41, 2000]`, finite; stress float64 and binary material mask int64 |
+| Supplied checkpoint and statistics | Strict model loading, 432,392 parameters; matching means, scales, and field order |
+| 400-case evaluation | Mean stress relative L2 about 0.13; mean void IoU about 0.95; JSON and both per-case CSV files produced |
+| Reconstruction and plotting | Held-out indices 28 and 178 produced full-grid NPZ files and a two-case PNG |
+| One-update training smoke check | Finite training and validation losses; `best.pt` and `last.pt` produced |
+
+The commands sample new sensor and source draws. Their outputs demonstrate the software interfaces; they do not establish reproduction of every manuscript result.
 
 ## Package checks
 
-| Check | Result | Scope |
-| --- | --- | --- |
-| `PYTHONPATH=src python -m pytest -q` | 30 passed | Data contracts, model behavior, geometry masking, metrics, training, evaluation, reconstruction, and checkpoint paths. |
-| `python -m ruff check src tests docs/figures` | Passed | Static lint for package, tests, and figure scripts. |
-| Package wheel build | Passed | Source can be packaged for installation. |
+Install the existing test tools and run the same checks as [CPU CI](../.github/workflows/ci.yml):
 
-The package checks exercise interfaces and small examples; they are not full manuscript training runs.
-
-## Changing geometry
-
-The elasticity and airfoil adapters use the manuscript's seed-42 80/20 case partitions: 1,600/400 unit cells and 1,992/498 airfoils. A recorded comparison across all held-out cases found the same case order, coordinates, reference fields, and prescribed sensor candidates as the manuscript arrays; airfoil density and pressure differed only by up to `1.2e-7` after the float32 log/exp round trip. The geometry metrics applied to those arrays reproduced the manuscript's per-case stress, mask, concentration, and drag values, with Mach relative L2 agreeing within `1.4e-17`.
-
-Both selected geometry checkpoints loaded strictly into the supplied model profiles (432,392 elasticity parameters and 1,983,865 airfoil parameters). The airfoil checkpoint required a tensor-only export because its original file also contains a pickled NumPy random state; the exported weights and statistics were unchanged. Matching statistics are necessary for checkpoint evaluation: the stored elasticity scales differ from exact double-precision training moments by up to `0.83%`.
-
-| Recorded end-to-end check | Result | Interpretation |
-| --- | --- | --- |
-| Elasticity `dmf-evaluate` on 400 cases, 16 stress sensors, 8 draws, 4 Euler steps | Mean stress relative L2 `0.1297`; geometry relative L2 `0.216`; stress-concentration mean absolute relative error `0.095` | The manuscript's saved sensor draw yielded `0.1238` stress relative L2. |
-| Airfoil `dmf-evaluate` on 498 cases, 32 pressure sensors, 8 draws, 32 Euler steps | Mean Mach relative L2 `0.0120`; geometry relative L2 `0.106`; drag mean absolute relative error `0.154` | The manuscript's saved draw yielded `0.0122` Mach relative L2. |
-| One or two optimizer updates with each geometry profile, followed by evaluation | Finite train and validation losses; checkpoints loaded and held-out cases were scored | Exercises real-data training and evaluation paths without claiming convergence. |
-| Full-grid reconstruction and plotting for one held-out case of each task | NPZ reconstruction and PNG field panels were produced | Exercises reconstruction and visualization entry points. |
-| Elasticity demo checkpoint `checkpoints/elasticity_gl_rbf_enh.pt`, `dmf-evaluate` on 400 cases with CUDA | Tensors and statistics identical to the manuscript checkpoint; per-case results identical to evaluating the manuscript file; mean stress relative L2 `0.1297` | The demo bundle carries the manuscript checkpoint unchanged. |
-| Elasticity demo commands on 4 CPU cores | 400-case evaluation in 42 s with stress relative L2 `0.1305` and void IoU `0.953`; two reconstructions and the manuscript-style figure in 10 s | CPU and CUDA draw different random values from the same seed. |
-| 50 epochs of the elasticity training recipe on one NVIDIA L40S | 1.39 s per epoch, about 7.7 h for 20,000 epochs; training and validation losses over the first 10 epochs within `0.05` of the manuscript run's | A complete retraining has not been compared with the manuscript checkpoint. |
-
-The CLI samples sensors from the prescribed candidate sets but does not replay the manuscript's saved sensor or source draws. The reported CLI means therefore describe fresh draws. Method comparisons should use matched draws.
-
-## Combustion and mixed-resolution CFD
-
-Recorded data checks accepted one combustion sample with shape `(40300, 5)` and the field order `CH4, CO, T, U_1, p`, plus CFD low, medium, and high samples with 1,024, 4,096, and 16,384 query points. Recomputed combustion moments over all 9,000 training frames matched the stored means; the largest relative standard-deviation difference was `4.3e-7`. Small optimizer and checkpoint checks exercised `GL_rbf`, `GL_rbf_ENH`, and `GL_rbf_ENH_CQ`, including mixed-resolution updates. One full-grid Cond-T reconstruction used 40,300 queries and 256 observations; observed-value replacement had maximum physical difference `0.0`.
-
-These checks do not establish paper-scale combustion or CFD scores. Dataset arrays, normalization files, trained checkpoints, and generated runs are outside the source package.
+```bash
+python -m pip install -e '.[test,plot,physics]'
+python -m ruff check src tests docs/figures
+python -m pytest -q
+```

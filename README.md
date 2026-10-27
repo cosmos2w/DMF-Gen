@@ -26,14 +26,19 @@
 
 ## Install
 
-**Requirements:** Python 3.10 or newer and PyTorch. Create an environment and install the package with:
+**Requirements:** Python 3.10 or newer. From the repository root, create an environment and install CPU PyTorch plus the package and demo plotting dependencies:
 
 ```bash
 python -m venv .venv
 . .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install -e .
+python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+python -m pip install -e '.[physics]'
 ```
+
+**Tested environment:** Ubuntu 22.04.5 LTS (x86-64), Python 3.10.19, PyTorch 2.14.1+cpu, NumPy 2.2.6, h5py 3.16.0, PyYAML 6.0.3, SciPy 1.15.3, and Matplotlib 3.10.9. These are tested versions; [pyproject.toml](pyproject.toml) specifies the minimum dependency versions. Installation into an empty environment took about 30 seconds on the test workstation with a fast network, excluding Python setup and demo downloads; allow several minutes on a typical desktop connection.
+
+**Hardware:** The elasticity evaluation and reconstruction demo runs on a standard CPU desktop; no GPU or other non-standard hardware is required. The timings below use four CPU threads on an AMD Ryzen Threadripper PRO 5975WX; peak process memory was about 0.4 GB for evaluation/reconstruction and 0.5 GB for the training smoke check. For optional full training, use a CUDA-capable GPU and install a matching PyTorch build in place of the CPU build above.
 
 **Optional acceleration:** PyKeOps can be installed for large point clouds (`pip install -e '.[keops]'`). Choose the neighbor backend in the YAML config and use an appropriate PyTorch build for your accelerator before starting a full training run.
 
@@ -74,90 +79,73 @@ python -m pip install -e .
 
 *Airfoil example.* Three held-out airfoils, cropped from one 101 × 101 grid. The model reconstructs density, velocity, pressure, and the fluid mask from 32 static-pressure sensors (white) drawn from one fixed ellipse (small dots); Mach number and drag are derived at evaluation.
 
-**Example:** With the [elasticity data](dataset/README.md) in place, run one optimizer update and score two held-out cells:
-
-```bash
-dmf-train --config configs/elasticity_gl_rbf_enh.yaml --epochs 1 --batch-size 8 \
-  --query-points 256 --max-steps 1 --validation-samples 2 --device cpu \
-  --output-dir runs/elasticity_quickstart
-dmf-evaluate --config configs/elasticity_gl_rbf_enh.yaml \
-  --checkpoint runs/elasticity_quickstart/best.pt --max-samples 2 --device cpu \
-  --output-dir runs/elasticity_quickstart/evaluation
-```
-
-Field errors use only points where the reference field exists, and the mask is scored as a thresholded shape. The per-case shape errors, stress concentration, Mach error, and drag go to `per_sample_task.csv`. The [airfoil profile](configs/airfoil_gl_rbf_cq.yaml) runs the same way, but its evaluation also needs `pip install -e '.[physics]'` for the drag metric.
-
 ## Demo: elasticity reconstruction
 
-**Files.** Download `dmf-gen_elasticity_demo.zip` (18 MB) from the [demo folder](https://drive.google.com/drive/folders/1ebHxgUIBfr-IAJ9kQwwgNfO8F3nNXZxS) and unzip it in the repository root. It adds the elasticity arrays released with Geo-FNO, their training-split statistics, and the manuscript's elasticity checkpoint, `checkpoints/elasticity_gl_rbf_enh.pt`; the [dataset guide](dataset/README.md#elasticity-demo-bundle) lists the files and their checksums. Install the package with `pip install -e '.[physics]'`, which adds the plotting dependencies, and run from the repository root:
+**Files.** Download the four individual files (about 61 MB total) from the [elasticity demo folder](https://drive.google.com/drive/folders/1ebHxgUIBfr-IAJ9kQwwgNfO8F3nNXZxS). Follow the [file placement and SHA-256 table](dataset/README.md#elasticity-demo-files), including renaming the statistics and checkpoint files. The files provide Geo-FNO stress and material-mask arrays for 2,000 unit cells, training normalization, and the supplied elasticity checkpoint. After installation and file placement, run from the repository root:
 
 ```bash
-# 1. Score the manuscript checkpoint on all 400 held-out unit cells
+# Use four CPU threads for the timings below
+export OMP_NUM_THREADS=4
+export MKL_NUM_THREADS=4
+
+# 1. Score the supplied checkpoint on all 400 held-out unit cells
 dmf-evaluate --config configs/elasticity_gl_rbf_enh.yaml \
-  --checkpoint checkpoints/elasticity_gl_rbf_enh.pt --output-dir runs/elasticity_demo/evaluation
+  --checkpoint checkpoints/elasticity_gl_rbf_enh.pt --device cpu \
+  --output-dir runs/elasticity_demo/evaluation
 
 # 2. Reconstruct two held-out cells and draw them in the manuscript's style
 for i in 28 178; do
   dmf-reconstruct --config configs/elasticity_gl_rbf_enh.yaml \
-    --checkpoint checkpoints/elasticity_gl_rbf_enh.pt --sample-index $i \
+    --checkpoint checkpoints/elasticity_gl_rbf_enh.pt --sample-index "$i" --device cpu \
     --output runs/elasticity_demo/case_$i.npz
 done
 python docs/figures/render_elasticity_reconstruction.py \
   runs/elasticity_demo/case_28.npz runs/elasticity_demo/case_178.npz \
   --output runs/elasticity_demo/reconstruction.png
+```
 
-# 3. Train a new model with the checkpoint's recipe
+| Step | Expected output | Approximate CPU run time |
+| --- | --- | --- |
+| 1. Evaluate | `runs/elasticity_demo/evaluation/summary.json`, `per_sample_field.csv`, and `per_sample_task.csv`; mean stress relative L2 about 0.1305 and mean void IoU about 0.953 | 48 s |
+| 2. Reconstruct and plot | `runs/elasticity_demo/case_28.npz`, `case_178.npz`, and `reconstruction.png` | 5 s |
+
+**Configuration.** The [runnable elasticity profile](configs/elasticity_gl_rbf_enh.yaml) specifies the supplied checkpoint's architecture (`GL_rbf_ENH`, 432,392 parameters), 16–32 stress sensors per training case, and 16 at evaluation. Evaluation averages 8 draws with 4 Euler steps each, using the supplied training statistics. The checkpoint records epoch 12,605. Sensor and source draws are generated by the commands, so scores and per-case reconstructions can vary across environments and from the manuscript's saved draws.
+
+<a href="docs/figures/elasticity_reconstruction.png"><img src="docs/figures/elasticity_reconstruction.png" alt="Reference and DMF-Gen von Mises stress for two held-out unit cells, the 16 stress sensors next to each void, and the signed reconstruction errors with their relative L2 errors" width="75%"></a>
+
+*Elasticity reconstruction.* Held-out samples 28 and 178 (unit cells 161 and 893), reconstructed with the supplied checkpoint using step 2. Top: reference von Mises stress and the DMF-Gen mean of 8 draws. Bottom: the 16 stress sensors on the reference geometry and the signed reconstruction error, with its relative L2 error over the material. Per-case errors depend on the sensor draw; the commands draw their own sensors rather than replaying the manuscript's.
+
+### Optional: start a new elasticity training run
+
+To check the training interface with one optimizer update and two validation cases:
+
+```bash
+dmf-train --config configs/elasticity_gl_rbf_enh.yaml --epochs 1 --batch-size 8 \
+  --query-points 256 --max-steps 1 --validation-samples 2 --device cpu \
+  --output-dir runs/elasticity_smoke
+```
+
+This writes `run_config.yaml`, `train.log`, `metrics.jsonl`, `best.pt`, and `last.pt` in `runs/elasticity_smoke/` and took about 2 seconds on the tested CPU. It checks execution only. To start full training on your own GPU:
+
+```bash
 dmf-train --config configs/elasticity_gl_rbf_enh.yaml --device cuda:0 \
   --output-dir runs/elasticity_train
 ```
 
-| Step | Expected output | Run time |
-| --- | --- | --- |
-| 1. Evaluate | `summary.json` reports a mean stress relative L2 of `0.1305` over the material and a mean void IoU of `0.953`; per-case values are in `per_sample_field.csv` and `per_sample_task.csv`. With `--device cuda:0` the random draws differ and the stress error is `0.1297`. | 45 s on 4 CPU cores |
-| 2. Reconstruct and plot | Two NPZ files and the figure below | 10 s on 4 CPU cores |
-| 3. Train | `run_config.yaml`, `train.log`, `metrics.jsonl`, `best.pt`, and `last.pt` in `runs/elasticity_train/` | 7.7 h for 20,000 epochs on one NVIDIA L40S GPU; 38 s per epoch on 4 CPU cores |
+The profile configures 20,000 epochs. A previously measured 50-epoch NVIDIA L40S run was about 1.4 seconds per epoch (roughly 8 hours extrapolated for 20,000 epochs). This is a runtime estimate; the public training command does not guarantee recovery of the supplied checkpoint or manuscript scores.
 
-*Times were measured with Python 3.10 and PyTorch 2.11 on 4 cores of an AMD EPYC 9474F and on one NVIDIA L40S. Steps 1 and 2 use under 1 GB of memory; CPU training uses about 6 GB.*
+## Use with your data
 
-**Configuration.** The [elasticity profile](configs/elasticity_gl_rbf_enh.yaml) holds the checkpoint's architecture (`GL_rbf_ENH`, 432,392 parameters), sensor rule, training recipe, and evaluation settings: 16 to 32 stress sensors per training case, 16 at evaluation, and the mean of 8 draws with 4 Euler steps each. The manuscript checkpoint is the epoch-12,605 state of a 20,000-epoch run. The bundle also keeps that run's original configuration file, `checkpoints/elasticity_gl_rbf_enh.training_config.yaml`, for reference; `dmf-train` does not read it.
-
-<a href="docs/figures/elasticity_reconstruction.png"><img src="docs/figures/elasticity_reconstruction.png" alt="Reference and DMF-Gen von Mises stress for two held-out unit cells, the 16 stress sensors next to each void, and the signed reconstruction errors with their relative L2 errors" width="75%"></a>
-
-*Elasticity reconstruction.* Held-out samples 28 and 178 (unit cells 161 and 893), the two cases of the manuscript's elasticity figure, as produced by step 2. Top: reference von Mises stress and the DMF-Gen mean of 8 draws. Bottom: the 16 stress sensors on the reference geometry and the signed reconstruction error, with its relative L2 error over the material. Per-case errors depend on the sensor draw; the commands draw their own sensors rather than replaying the manuscript's.
-
-## Quick start: train, evaluate, reconstruct
-
-**Quick check:** After placing the combustion dataset, run one optimizer update on a small query subset to check the training, evaluation, and reconstruction commands:
-
-```bash
-# Train
-dmf-train --config configs/gl_rbf_base.yaml --epochs 1 --batch-size 1 \
-  --query-points 64 --max-steps 1 --validation-samples 1 \
-  --device cpu --output-dir runs/quickstart
-
-# Evaluate
-dmf-evaluate --config configs/gl_rbf_base.yaml \
-  --checkpoint runs/quickstart/best.pt --max-samples 1 --query-points 64 \
-  --consistency none --device cpu --output-dir runs/quickstart/evaluation
-
-# Reconstruct
-dmf-reconstruct --config configs/gl_rbf_base.yaml \
-  --checkpoint runs/quickstart/best.pt --sample-index 0 --query-points 64 \
-  --consistency none --device cpu --output runs/quickstart/reconstruction.npz
-
-# Optional diagnostic plot
-python -m pip install -e '.[plot]'
-dmf-plot runs/quickstart/reconstruction.npz --output runs/quickstart/reconstruction.png
-```
-
-**Query subset note:** `--consistency none` is used here because the sampled query points may not contain the observed points. Full-grid evaluation can use the consistency setting in the selected config.
-
-**Larger experiments:** [Cond-T combustion](configs/combustion_cond_t.yaml), [Cond-T/U1 combustion](configs/combustion_cond_tu1.yaml), [Cond-CO/T/U1/p combustion](configs/combustion_cond_cotu1p.yaml), and [mixed-resolution CFD](configs/mixed_hml.yaml) provide ready-to-edit task configs.
-
-For example, train the Cond-T task with `dmf-train --config configs/combustion_cond_t.yaml --device cuda:0 --output-dir runs/combustion_cond_t`; adjust the YAML training settings to fit your hardware and experiment.
+Follow the [dataset guide](dataset/README.md#use-with-your-data) for input shapes, field order, path settings, and training-split normalization. Copy a suitable [task config](configs/), set `data.path` or `data.root` and `data.stats_path`, and use the same `dmf-train`, `dmf-evaluate`, and `dmf-reconstruct` commands with your config and checkpoint. Keep normalization statistics paired with their trained model.
 
 ## Outputs and interpretation
 
 **Training** writes a resolved config, metrics, a run log, and checkpoints under the chosen `runs/` folder. Set `training.plot_every_epochs` to a positive integer to save `loss_history.csv` and `loss_history.png`, or set `evaluation.every_epochs` to run periodic physical-field evaluation.
 
 **Evaluation** writes per-sample and per-field physical relative-L2 results. Set `evaluation.plot_samples: 1` to also save one full-field truth/reconstruction/absolute-error PNG per channel for the first deterministic held-out sample. Scheduled evaluations place these panels beside `summary.json` in `evaluation/epoch_XXXX/`; the summary records the sample ID and filenames. Plotting requires the optional `plot` dependencies (`pip install -e '.[plot]'`). **Reconstruction** writes coordinates, observations, targets, and sampled predictions to an NPZ file that `dmf-plot` can visualize.
+
+For implementation references and verification commands, see the [paper-to-code map](docs/PAPER_MAP.md) and [validation guide](docs/VALIDATION.md).
+
+## License
+
+Original DMF-Gen source code is distributed under the [MIT License](LICENSE). The license does not automatically relicense Geo-FNO or PDEBench datasets, pretrained checkpoints, third-party dependencies, or article materials; their applicable terms remain with their respective providers. Dataset sources and attribution are in the [dataset guide](dataset/README.md).
